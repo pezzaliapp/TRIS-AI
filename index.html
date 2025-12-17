@@ -309,9 +309,43 @@
   const inBounds=(x,y,z)=>x>=0&&x<N&&y>=0&&y<N&&z>=0&&z<N;
 
   function isSurfaceIndex(i){
-    const p=toXYZ(i);
-    return (p.x===0||p.x===N-1||p.y===0||p.y===N-1||p.z===0||p.z===N-1);
-  }
+  const p=toXYZ(i);
+  return (p.x===0||p.x===N-1||p.y===0||p.y===N-1||p.z===0||p.z===N-1);
+}
+
+// Colori facce (blend su spigoli/vertici)
+function surfaceTint(i){
+  const p = toXYZ(i);
+
+  // base freddo scuro
+  let r = 0.10, g = 0.13, b = 0.18;
+
+  // contributi per faccia (leggeri ma visibili)
+  // x=0 (sinistra)   -> blu
+  if(p.x===0) { r+=0.05; g+=0.12; b+=0.32; }
+
+  // x=3 (destra)     -> verde
+  if(p.x===N-1) { r+=0.06; g+=0.28; b+=0.10; }
+
+  // y=0 (alto)       -> viola
+  if(p.y===0) { r+=0.22; g+=0.08; b+=0.30; }
+
+  // y=3 (basso)      -> ambra
+  if(p.y===N-1) { r+=0.28; g+=0.18; b+=0.05; }
+
+  // z=0 (front)      -> ciano
+  if(p.z===0) { r+=0.05; g+=0.28; b+=0.26; }
+
+  // z=3 (back)       -> rosso tenue
+  if(p.z===N-1) { r+=0.30; g+=0.08; b+=0.08; }
+
+  // clamp
+  r = Math.min(1, r);
+  g = Math.min(1, g);
+  b = Math.min(1, b);
+
+  return [r,g,b];
+}
 
   function generateLines(n){
     const dirs=[];
@@ -823,18 +857,30 @@
       cubeT[i*3+1]=p[1];
       cubeT[i*3+2]=p[2];
 
-      // estetica: superficie più “presente”, interno più tenue (ma visibile)
-      const surf = isSurfaceIndex(i);
-      const z=toXYZ(i).z;
-      const layerOpacity=[1.0,0.78,0.60,0.45][z];
-      const alpha = (surf?0.96:0.26) * layerOpacity;
+      // estetica: FACCE GIOCABILI colorate (shell esterno), interno quasi invisibile
+const surf = isSurfaceIndex(i);
+const z = toXYZ(i).z;
+const layerOpacity = [1.0, 0.78, 0.60, 0.45][z];
 
-      cubeC[i*4+0]=0.10;
-      cubeC[i*4+1]=0.13;
-      cubeC[i*4+2]=0.18;
-      cubeC[i*4+3]=alpha;
+// alpha: facce ben visibili, interno “fantasma”
+const alpha = (surf ? 0.98 : 0.10) * layerOpacity;
 
-      cubeV[i]=1.0;
+if (surf) {
+  const [r,g,b] = surfaceTint(i);   // 🎨 colore in base alla faccia
+  cubeC[i*4+0] = r;
+  cubeC[i*4+1] = g;
+  cubeC[i*4+2] = b;
+} else {
+  // interno neutro scuro
+  cubeC[i*4+0] = 0.07;
+  cubeC[i*4+1] = 0.09;
+  cubeC[i*4+2] = 0.12;
+}
+
+cubeC[i*4+3] = alpha;
+
+// i cubi restano sempre visibili
+cubeV[i] = 1.0;
 
       const rgb=encodeIdToRGB(i+1);
       cubePick[i*3+0]=rgb[0];
